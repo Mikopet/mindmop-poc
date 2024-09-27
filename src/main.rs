@@ -1,8 +1,8 @@
+mod endpoints;
 mod graph;
 
-use axum::{routing::get, Router};
 use lazy_static::lazy_static;
-use libsql::Database;
+use libsql::{Connection, Database};
 use shuttle_axum::ShuttleAxum;
 use shuttle_runtime::{SecretStore, Secrets};
 use shuttle_turso::Turso;
@@ -14,8 +14,10 @@ lazy_static! {
         .unwrap_or(false);
 }
 
-async fn hello_world() -> &'static str {
-    "Hello, world!"
+#[derive(Clone)]
+struct AppState {
+    db: Connection,
+    secrets: SecretStore,
 }
 
 #[shuttle_runtime::main]
@@ -27,14 +29,15 @@ async fn app(
     db: Database,
     #[Secrets] secrets: SecretStore,
 ) -> ShuttleAxum {
-    let router = Router::new().route("/", get(hello_world));
-
     // Build DB connection
     let db = db.connect().unwrap();
 
     // Set up graph schema
     graph::schema::setup(&db).await?;
 
+    // Build AppState
+    let state = AppState { db, secrets };
+
     // Boot Axum Server
-    Ok(router.into())
+    Ok(endpoints::router(state).into())
 }
