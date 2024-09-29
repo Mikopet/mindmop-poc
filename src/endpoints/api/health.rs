@@ -1,14 +1,9 @@
-use axum::{extract::State, http::StatusCode, response::IntoResponse};
+use axum::extract::State;
 
-use crate::AppState;
+use crate::{graph::Stats, AppState};
 
-pub async fn health(State(state): State<AppState>) -> impl IntoResponse {
-    match state
-        .db
-        .execute("SELECT COUNT(*) FROM graph LIMIT 0", ())
-        .await
-    {
-        Ok(_) => (StatusCode::OK, String::from("ok")),
-        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()),
-    }
+use super::types::JsonResponse;
+
+pub async fn health(State(state): State<AppState>) -> JsonResponse<Stats> {
+    Stats::get(&state.db).await.into()
 }
